@@ -2,6 +2,7 @@
 #include <windows.h>
 #include <imm.h>
 #include <string.h>
+#include <iostream>
 
 #pragma comment(lib, "imm32.lib")
 
@@ -106,7 +107,18 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
             action = 1;
         }
     }
-    
-    ToggleHangulMode(GetForegroundWindow(), action);
+
+    HWND hwnd = GetForegroundWindow();
+    bool prevHangul = false;
+    if (!GetHangulState(hwnd, &prevHangul)) {
+        prevHangul = false;
+    }
+    int prev = prevHangul ? 1 : 0;
+    int next = (action == 2) ? (prev ^ 1) : action;
+
+    std::cout << prev << next;
+    std::cout.flush();
+
+    ToggleHangulMode(hwnd, action);
     return 0;
 }
