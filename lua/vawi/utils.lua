@@ -7,7 +7,7 @@ function M.get_plugin_root()
 	return vim.fn.fnamemodify(source, ":h:h:h")
 end
 
-function M.set_ime_off()
+local function get_exe_path()
 	local home = vim.fn.expand("~")
 	-- detect WSL
 	local is_wsl = false
@@ -24,11 +24,9 @@ function M.set_ime_off()
 	if is_wsl and vim.fn.executable("cmd.exe") == 1 then
 		local vawi_path = vim.env.VAWI_PATH
 		if vawi_path and vawi_path ~= "" then
-			pcall(vim.fn.jobstart, { "cmd.exe", "/C", vawi_path, "off" }, { detach = true })
-			return true
+			return "cmd.exe", { "/C", vawi_path }
 		elseif vim.fn.executable("vawi.exe") == 1 then
-			pcall(vim.fn.jobstart, { "cmd.exe", "/C", "vawi.exe", "off" }, { detach = true })
-			return true
+			return "cmd.exe", { "/C", "vawi.exe" }
 		end
 	end
 
@@ -45,11 +43,54 @@ function M.set_ime_off()
 
 	for _, exe in ipairs(exe_candidates) do
 		if vim.fn.executable(exe) == 1 then
-			vim.fn.jobstart({ exe, "off" }, { detach = true })
-			return true
+			return exe, {}
 		end
 	end
-	return false
+	return nil, nil
+end
+
+function M.run_vawi(action, callback)
+	local exe, args = get_exe_path()
+	if not exe then
+		return false
+	end
+
+	local cmd_args = { exe }
+	if args then
+		for _, v in ipairs(args) do
+			table.insert(cmd_args, v)
+		end
+	end
+	table.insert(cmd_args, action)
+
+	if callback then
+		local output = ""
+		vim.fn.jobstart(cmd_args, {
+			on_stdout = function(_, data)
+				if data then
+					output = output .. table.concat(data, "")
+				end
+			end,
+			on_exit = function()
+				callback(output)
+			end,
+		})
+	else
+		vim.fn.jobstart(cmd_args, { detach = true })
+	end
+	return true
+end
+
+function M.set_ime_off(callback)
+	return M.run_vawi("off", callback)
+end
+
+function M.set_ime_on(callback)
+	return M.run_vawi("on", callback)
+end
+
+function M.toggle_ime(callback)
+	return M.run_vawi("toggle", callback)
 end
 
 return M
